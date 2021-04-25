@@ -11,7 +11,7 @@
 <p>Play8 9.3.0</p>
 <p>Copyright (C) 2015-2021 Athos Toniolo (except images)</p>
 
-http://athosweb.altervista.org/pages/games.html
+Forked from http://athosweb.altervista.org/pages/games.html
 
 <p>CODE:</p>
 <pre>
