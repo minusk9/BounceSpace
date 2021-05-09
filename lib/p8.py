@@ -14,10 +14,7 @@ import play8
 # Written by Athos Toniolo
 
 
-# p8
-def p8_0(args, opts, optv):
-    if "-h" in optv:
-        sys.stderr.write("""
+HELP_MESSAGE = """
 P8 (Play 8)
 
 Usage:
@@ -27,33 +24,30 @@ Options:
     --config    config STRING
     --play      play GAME (default bits)
     -h          this help
-""")
+"""
+
+
+def _print_help():
+    print(HELP_MESSAGE, file=sys.stderr)
+
+
+def main(args, options):
+    if "-h" in options:
+        _print_help()
         sys.exit()
-    if opt_play(opts) == 'bits':
-        g = bits.BITS(
+
+    if options.get("--play", "bits") == "bits":
+        # FIXME the game must load the framework, not the other way around
+        config = options.get("--config", "")
+        game = bits.BITS(
             os.path.join(os.path.dirname(sys.argv[0]), ".."),
-            play8.config_parse(opt_config(opts))
+            play8.config_parse(config)
         )
-        g.play()
-    return
-
-
-# config
-def opt_config(opts):
-    for x, x2 in opts:
-        if x == "--config":
-            return x2
-    return str()
-
-
-# play
-def opt_play(opts):
-    for x, x2 in opts:
-        if x == "--play":
-            return x2
-    return 'bits'
+        game.play()
 
 
 # play8
-opts, args = getopt.getopt(sys.argv[1:], "h", ["config=", "play="])
-p8_0(args, opts, [x for x, x2 in opts])
+if __name__ == "__main__":
+    opts, args = getopt.getopt(sys.argv[1:], "h", ["config=", "play="])
+    opts = {k: v for k, v in opts}
+    main(args, opts)
