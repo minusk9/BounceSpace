@@ -4,7 +4,11 @@
 # Play8 9
 # Written by Athos Toniolo
 
-import os.path
+from __future__ import annotations
+
+from enum import Enum
+import os
+
 import pygame
 import pygame.image
 
@@ -37,12 +41,38 @@ def config_parse(config):
     return mapping
 
 
-# screen64 screen
-def screen64_screen(fore):
-    """Return RGB triplet of foreground or background"""
-    if fore:
-        return 108, 94, 181
-    return 53, 40, 121
+class Color:
+    __slots__ = ['_r', '_g', '_b']
+
+    def __init__(self, r: int, g: int, b: int) -> None:
+        if not all(0 <= x <= 255 for x in (r, g, b)):
+            raise ValueError("RGB triplet values must be between 0 and 255")
+        self._r = r
+        self._g = g
+        self._b = b
+
+    @property
+    def r(self) -> int:
+        return self._r
+
+    @property
+    def g(self) -> int:
+        return self._g
+
+    @property
+    def b(self) -> int:
+        return self._b
+
+    def as_tuple(self) -> tuple[int, int, int]:
+        return (self.r, self.g, self.b)
+
+
+class C64Colors(Enum):
+    FOREGROUND = Color(108, 94, 181)
+    BACKGROUND = Color(53, 40, 121)
+
+    def as_tuple(self):
+        return self.value.as_tuple()
 
 
 # screen64 font

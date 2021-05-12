@@ -21,6 +21,7 @@ import pygame.sprite
 import pygame.time
 
 import play8
+from play8 import C64Colors
 
 
 class BITS:
@@ -88,7 +89,7 @@ class BITS:
         )
 
     def head(self):
-        self.view.fill(play8.screen64_screen(fore=False))
+        self.view.fill(C64Colors.BACKGROUND.as_tuple())
         self._write_capital_b_at((5, 5))
         self._write_ascii_at("OUNCE IN THE SPACE", (8, 9))
         self._write_ascii_at("WRITTEN BY ATHOS TONIOLO", (5, 20))
@@ -180,7 +181,7 @@ class BITS:
         pygame.time.set_timer(pygame.USEREVENT, 0)
 
     def tail(self):
-        bg_rgb = play8.screen64_screen(fore=False)
+        bg_rgb = C64Colors.BACKGROUND.as_tuple()
         angle = 360
         s = "PRESS SPACE"
         b = True    # XXX WTF??
@@ -220,7 +221,7 @@ class BITS:
         balls = Balls()
         for x in range(info.getint(part, 'balls')):
             balls.add(Ball(view, self.font, info.getint(part, 'speed')))
-        bg_rgb = play8.screen64_screen(fore=False)
+        bg_rgb = C64Colors.BACKGROUND.as_tuple()
         pygame.time.set_timer(pygame.USEREVENT, 1000)
         if pygame.mixer:
             pygame.mixer.music.play()
