@@ -21,33 +21,39 @@ import pygame.sprite
 import pygame.time
 
 import play8
+from play8 import C64Colors
 
 
 class BITS:
     """BITS"""
 
-    def __init__(self, path, conf):
-        pygame.init()
-        t = 40, 25
-        self.view = play8.screen64_view(t)
-        pygame.display.set_caption('BITS')
-        self.font = list()
-        for x in range(4):
-            self.font.append(play8.screen64_font(path, x))
+    def __init__(self, path, _):
+        self._caption = "BITS"
         self.path = path
+        self.resolution = 40, 25
+        self.ship = None
+        self.view = None
+        self.code = None    # XXX what is this?
+
+        self.start()
+
+    def start(self):
+        pygame.init()   # FIXME this should be called on framework start
+
+        self.view = play8.screen64_view(self.resolution)
+        pygame.display.set_caption(self._caption)
+        self.font = [play8.screen64_font(self.path, x) for x in range(4)]
         self.ship = play8.screen64_make(
             self.font[0],
             play8.bytes_shape(bytes.fromhex("4e 4d 66 66 66 66 4d 4e"), 2)
         )
-        return
 
     def body(self):
-        cp = configparser.ConfigParser()
-        cp.read(os.path.join(self.path, "ini", "bits.ini"))
-        t = 35, 25
-        s = play8.screen64_view(t, back=self.view)
-        s2 = str()
-        i = self.look(s2.join(self.code), cp)
+        config = configparser.ConfigParser()
+        config.read(os.path.join(self.path, "ini", "bits.ini"))
+        playable_area_size = 35, 25
+        playable_area = play8.screen64_view(playable_area_size, back=self.view)
+        i = self.look("".join(self.code), config)
         if pygame.mixer:
             pygame.mixer.music.load(
                 os.path.join(self.path, "res", "bounce.mp3")
@@ -55,15 +61,13 @@ class BITS:
             pygame.mixer.music.set_volume(0.3)
         while True:
             s2 = str(i)
-            if not cp.has_section(s2):
+            if not config.has_section(s2):
                 return True
-            if not self.turn(s, s2, cp):
+            if not self.turn(playable_area, s2, config):
                 return False
             i += 1
 
-    def head(self):
-        self.view.fill(play8.screen64_screen(False))
-        t = 5, 5
+    def _write_capital_b_at(self, coords):
         play8.screen64_printall(
             self.font[0],
             play8.bytes_shape(
@@ -73,51 +77,61 @@ class BITS:
                 3
             ),
             self.view,
-            t
+            coords,
         )
-        t = 8, 9
-        s = "OUNCE IN THE SPACE"
-        play8.screen64_printrow(self.font[2], s.encode('ascii'), self.view, t)
-        t = 5, 20
-        s = "WRITTEN BY ATHOS TONIOLO"
-        play8.screen64_printrow(self.font[2], s.encode('ascii'), self.view, t)
-        t = 35, 0
+
+    def _write_ascii_at(self, text, coords):
+        play8.screen64_printrow(
+            self.font[2],
+            text.encode('ascii'),
+            self.view,
+            coords,
+        )
+
+    def head(self):
+        self.view.fill(C64Colors.BACKGROUND.as_tuple())
+        self._write_capital_b_at((5, 5))
+        self._write_ascii_at("OUNCE IN THE SPACE", (8, 9))
+        self._write_ascii_at("WRITTEN BY ATHOS TONIOLO", (5, 20))
+
+        # UI
+        coords = 35, 0
         play8.screen64_printall(
             self.font[0], play8.bytes_shape(bytes.fromhex("61") * 25, 1),
             self.view,
-            t
+            coords
         )
-        t = 36, 1
-        s = "TIME"
-        play8.screen64_printrow(self.font[2], s.encode('ascii'), self.view, t)
-        t = 36, 5
+        self._write_ascii_at("TIME", (36, 1))
+        coords = 36, 5
         s = "PRESS SPACE"
-        play8.screen64_printall(self.font[2], play8.bytes_shape(
-            s.encode('ascii'), 1), self.view, t
+        play8.screen64_printall(
+            self.font[2],
+            play8.bytes_shape(s.encode('ascii'), 1),
+            self.view,
+            coords,
         )
+
         b = True
-        s = str()
-        lst = list("CODE")
-        t = 36, 23
+        s = ""
+        chars = list("CODE")
+        coords = 36, 23
         while True:
             if b:
-                s2 = s.join(lst)
-                play8.screen64_printrow(
-                    self.font[2], s2.encode('ascii'), self.view, t
-                )
+                s2 = s.join(chars)
+                self._write_ascii_at(s2, coords)
                 pygame.display.flip()
                 b = False
-            for x in pygame.event.get():
-                if x.type == pygame.QUIT:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
                     sys.exit()
-                elif x.type == pygame.KEYDOWN:
-                    if x.unicode == ' ':
-                        self.code = lst
+                elif event.type == pygame.KEYDOWN:
+                    if event.unicode == ' ':
+                        self.code = chars
                         return
-                    elif len(x.unicode) == 1:
-                        if x.unicode.isalpha() or x.unicode.isdigit():
-                            lst.pop(0)
-                            lst.append((x.unicode.upper()))
+                    elif len(event.unicode) == 1:
+                        if event.unicode.isalpha() or event.unicode.isdigit():
+                            chars.pop(0)
+                            chars.append(event.unicode.upper())
                             b = True
 
     def look(self, code, info):
@@ -131,56 +145,57 @@ class BITS:
         return 1
 
     def play(self):
-        while 1:
+        while True:
             self.head()
             if self.body():
                 self.tail()
 
     def side(self, view, part, info):
-        s = "{:0>4}"
-        t = 36, 21
-        s2 = s.format(part)
-        play8.screen64_printrow(self.font[2], s2.encode('ascii'), view, t)
-        t = 36, 23
-        s = info.get(part, 'label')
-        play8.screen64_printrow(self.font[2], s.encode('ascii'), view, t)
-        i = 0
-        s = "GET READY !"
-        l1 = play8.bytes_shape(s.encode('ascii'), 1)
-        s = "           "
-        l2 = play8.bytes_shape(s.encode('ascii'), 1)
-        t = 36, 5
+        # update sidebar
+        coords = 36, 21
+        self._write_ascii_at(f"{part:0>4}", coords)
+        coords = 36, 23
+        self._write_ascii_at(info.get(part, 'label'), coords)
+
+        # flash a "Get ready" message
+        prompt_text = "GET READY !"
+        prompt_on = play8.bytes_shape(prompt_text.encode('ascii'), 1)
+        prompt_off = play8.bytes_shape(
+            (" " * len(prompt_text)).encode('ascii'),
+            1
+        )
         pygame.time.set_timer(pygame.USEREVENT, 500)
-        while i < 8:
+        coords = 36, 5
+        i = 0
+        while i < 8:    # XXX WTF??
             for x in pygame.event.get():
                 if x.type == pygame.QUIT:
                     sys.exit()
                 elif x.type == pygame.USEREVENT:
                     i += 1
             if i % 2:
-                play8.screen64_printall(self.font[2], l1, view, t)
+                play8.screen64_printall(self.font[2], prompt_on, view, coords)
             else:
-                play8.screen64_printall(self.font[2], l2, view, t)
+                play8.screen64_printall(self.font[2], prompt_off, view, coords)
             pygame.display.flip()
         pygame.time.set_timer(pygame.USEREVENT, 0)
-        return
 
     def tail(self):
-        t = play8.screen64_screen(False)
-        i = 360
+        bg_rgb = C64Colors.BACKGROUND.as_tuple()
+        angle = 360
         s = "PRESS SPACE"
-        b = True
+        b = True    # XXX WTF??
         pygame.time.set_timer(pygame.USEREVENT, 500)
-        c = pygame.time.Clock()
+        clock = pygame.time.Clock()
         while b:
-            for x in pygame.event.get():
-                if x.type == pygame.QUIT:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
                     sys.exit()
-                elif x.type == pygame.KEYDOWN:
-                    if x.unicode == ' ':
+                elif event.type == pygame.KEYDOWN:
+                    if event.unicode == ' ':
                         b = False
-            self.view.fill(t)
-            i2 = pygame.transform.rotate(self.ship, i)
+            self.view.fill(bg_rgb)
+            i2 = pygame.transform.rotate(self.ship, angle)
             t2 = 100, 100
             r = self.ship.get_rect(topleft=t2)
             t2 = r.center
@@ -191,57 +206,56 @@ class BITS:
                 self.font[2], s.encode('ascii'), self.view, t2
             )
             pygame.display.flip()
-            i -= 5
-            i %= 360
-            c.tick(50)
+            angle -= 5
+            angle %= 360
+            clock.tick(50)
         pygame.time.set_timer(pygame.USEREVENT, 0)
-        return
 
     def turn(self, view, part, info):
         self.side(view.get_parent(), part, info)
-        b = True
-        f = 0
-        g = pygame.sprite.GroupSingle(Player(view, self.font, self.ship))
-        b2 = Balls()
+        is_game_running = True
+        completion_rate = 0
+        player_group = pygame.sprite.GroupSingle(
+            Player(view, self.font, self.ship)
+        )
+        balls = Balls()
         for x in range(info.getint(part, 'balls')):
-            b2.add(Ball(view, self.font, info.getint(part, 'speed')))
-        t = play8.screen64_screen(False)
-        # t2 = 0, 0
+            balls.add(Ball(view, self.font, info.getint(part, 'speed')))
+        bg_rgb = C64Colors.BACKGROUND.as_tuple()
         pygame.time.set_timer(pygame.USEREVENT, 1000)
         if pygame.mixer:
             pygame.mixer.music.play()
-        c = pygame.time.Clock()
-        while b:
+        clock = pygame.time.Clock()
+        while is_game_running:
             for x in pygame.event.get():
                 if x.type == pygame.QUIT:
                     sys.exit()
                 elif x.type == pygame.USEREVENT:
-                    f += 0.017
-            if f >= 1:
-                b = False
-            self.update_progress(view.get_parent(), f)
-            g.sprite.move()
-            if pygame.sprite.spritecollideany(g.sprite, b2):
+                    completion_rate += 0.017
+            if completion_rate >= 1:
+                is_game_running = False
+            self.update_progress(view.get_parent(), completion_rate)
+            player_group.sprite.move()
+            if pygame.sprite.spritecollideany(player_group.sprite, balls):
                 if pygame.mixer:
-                    s = pygame.mixer.Sound(
+                    pygame.mixer.Sound(
                         os.path.join(self.path, "res", "noise_5.1.wav")
-                    )
-                    s.play()
-                b = False
-            b2.move()
-            view.fill(t)
-            g.draw(view)
-            b2.draw(view)
+                    ).play()
+                is_game_running = False
+            balls.move()
+            view.fill(bg_rgb)
+            player_group.draw(view)
+            balls.draw(view)
             pygame.display.flip()
-            c.tick(50)
+            clock.tick(50)
         pygame.time.set_timer(pygame.USEREVENT, 0)
         if pygame.mixer:
             pygame.mixer.music.stop()
             while pygame.mixer.get_busy():
                 pass
-        view.fill(t)
+        view.fill(bg_rgb)
         pygame.display.flip()
-        return f >= 1
+        return completion_rate >= 1
 
     def update_progress(self, view, progress):
         t = 36, 1
@@ -249,15 +263,13 @@ class BITS:
         play8.screen64_progress(
             self.font[2], self.font[3], progress, s.encode('ascii'), view, t
         )
-        return
 
 
 class Ball(pygame.sprite.Sprite):
     "Ball"
 
     def __init__(self, view, font, spar):
-        o = super()
-        o.__init__()
+        super().__init__()
         self.image = play8.screen64_make(
             font[0], play8.bytes_shape(bytes.fromhex("51"), 1)
         )
@@ -281,7 +293,6 @@ class Ball(pygame.sprite.Sprite):
         t = spar * math.cos(f), spar * math.sin(f)
         self.move = numpy.array(t)
         self.safe = False
-        return
 
 
 class Balls(pygame.sprite.Group):
@@ -316,7 +327,6 @@ class Balls(pygame.sprite.Group):
                     x.safe = False
                     y.safe = False
                     b.remove(y)
-        return
 
     def bounce(self, spra, sprb, diff, norm):
         f = norm ** 2
@@ -328,11 +338,8 @@ class Balls(pygame.sprite.Group):
 
 
 class Player(pygame.sprite.Sprite):
-    "Player"
-
     def __init__(self, view, font, ship):
-        o = super()
-        o.__init__()
+        super().__init__()
         self.image = ship
         self.rect = self.image.get_rect()
         self.area = view.get_rect()
@@ -342,12 +349,12 @@ class Player(pygame.sprite.Sprite):
         return
 
     def move(self):
-        i, i2 = pygame.mouse.get_pos()
+        x, y = pygame.mouse.get_pos()
         if (
-            i >= self.area.left and self.area.right >= self.rect.width + i
-            and i2 >= self.area.top
-            and self.area.bottom >= self.rect.height + i2
+            x >= self.area.left and self.area.right >= self.rect.width + x
+            and y >= self.area.top
+            and self.area.bottom >= self.rect.height + y
         ):
-            self.rect.left = i
-            self.rect.top = i2
+            self.rect.left = x
+            self.rect.top = y
         return
