@@ -21,7 +21,7 @@ import pygame.sprite
 import pygame.time
 
 import play8
-from play8 import C64Colors
+from play8 import C64
 
 
 class BITS:
@@ -34,16 +34,17 @@ class BITS:
         self.ship = None
         self.view = None
         self.code = None    # XXX what is this?
+        self.font: list[play8.Font]
 
         self.start()
 
     def start(self):
         pygame.init()   # FIXME this should be called on framework start
 
-        self.view = play8.screen64_view(self.resolution)
+        self.view = C64.render_screen(self.resolution)
         pygame.display.set_caption(self._caption)
-        self.font = [play8.screen64_font(self.path, x) for x in range(4)]
-        self.ship = play8.screen64_make(
+        self.font = [C64.load_font(self.path, x) for x in range(4)]
+        self.ship = C64.render_rows(
             self.font[0],
             play8.bytes_shape(bytes.fromhex("4e 4d 66 66 66 66 4d 4e"), 2)
         )
@@ -52,7 +53,9 @@ class BITS:
         config = configparser.ConfigParser()
         config.read(os.path.join(self.path, "ini", "bits.ini"))
         playable_area_size = 35, 25
-        playable_area = play8.screen64_view(playable_area_size, back=self.view)
+        playable_area = C64.render_screen(
+            playable_area_size, background=self.view
+        )
         i = self.look("".join(self.code), config)
         if pygame.mixer:
             pygame.mixer.music.load(
@@ -68,7 +71,7 @@ class BITS:
             i += 1
 
     def _write_capital_b_at(self, coords):
-        play8.screen64_printall(
+        C64.render_rows_to_surface(
             self.font[0],
             play8.bytes_shape(
                 bytes.fromhex(
@@ -81,7 +84,7 @@ class BITS:
         )
 
     def _write_ascii_at(self, text, coords):
-        play8.screen64_printrow(
+        C64.render_row_to_surface(
             self.font[2],
             text.encode('ascii'),
             self.view,
@@ -89,14 +92,14 @@ class BITS:
         )
 
     def head(self):
-        self.view.fill(C64Colors.BACKGROUND.as_tuple())
+        self.view.fill(C64.Colors.BACKGROUND.as_tuple())
         self._write_capital_b_at((5, 5))
         self._write_ascii_at("OUNCE IN THE SPACE", (8, 9))
         self._write_ascii_at("WRITTEN BY ATHOS TONIOLO", (5, 20))
 
         # UI
         coords = 35, 0
-        play8.screen64_printall(
+        C64.render_rows_to_surface(
             self.font[0], play8.bytes_shape(bytes.fromhex("61") * 25, 1),
             self.view,
             coords
@@ -104,7 +107,7 @@ class BITS:
         self._write_ascii_at("TIME", (36, 1))
         coords = 36, 5
         s = "PRESS SPACE"
-        play8.screen64_printall(
+        C64.render_rows_to_surface(
             self.font[2],
             play8.bytes_shape(s.encode('ascii'), 1),
             self.view,
@@ -173,15 +176,15 @@ class BITS:
                     sys.exit()
                 elif x.type == pygame.USEREVENT:
                     i += 1
-            if i % 2:
-                play8.screen64_printall(self.font[2], prompt_on, view, coords)
-            else:
-                play8.screen64_printall(self.font[2], prompt_off, view, coords)
+            prompt = prompt_off if i % 2 == 0 else prompt_on
+            C64.render_rows_to_surface(
+                self.font[2], prompt, view, coords
+            )
             pygame.display.flip()
         pygame.time.set_timer(pygame.USEREVENT, 0)
 
     def tail(self):
-        bg_rgb = C64Colors.BACKGROUND.as_tuple()
+        bg_rgb = C64.Colors.BACKGROUND.as_tuple()
         angle = 360
         s = "PRESS SPACE"
         b = True    # XXX WTF??
@@ -202,7 +205,7 @@ class BITS:
             r = i2.get_rect(center=t2)
             self.view.blit(i2, r.topleft)
             t2 = 5, 20
-            play8.screen64_printrow(
+            C64.render_row_to_surface(
                 self.font[2], s.encode('ascii'), self.view, t2
             )
             pygame.display.flip()
@@ -221,7 +224,7 @@ class BITS:
         balls = Balls()
         for x in range(info.getint(part, 'balls')):
             balls.add(Ball(view, self.font, info.getint(part, 'speed')))
-        bg_rgb = C64Colors.BACKGROUND.as_tuple()
+        bg_rgb = C64.Colors.BACKGROUND.as_tuple()
         pygame.time.set_timer(pygame.USEREVENT, 1000)
         if pygame.mixer:
             pygame.mixer.music.play()
@@ -260,7 +263,7 @@ class BITS:
     def update_progress(self, view, progress):
         t = 36, 1
         s = "TIME"
-        play8.screen64_progress(
+        C64.render_progress_bar(
             self.font[2], self.font[3], progress, s.encode('ascii'), view, t
         )
 
@@ -270,7 +273,7 @@ class Ball(pygame.sprite.Sprite):
 
     def __init__(self, view, font, spar):
         super().__init__()
-        self.image = play8.screen64_make(
+        self.image = C64.render_rows(
             font[0], play8.bytes_shape(bytes.fromhex("51"), 1)
         )
         self.rect = self.image.get_rect()
